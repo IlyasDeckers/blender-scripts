@@ -10,4 +10,6 @@ WIP
     LAYERS = 3                   # Detail passes
     BAKE_TEXTURES = True         # Bake textures to vertex colors first
     EXPORT_PATH = r"C:\...\yourfile.ply"
+
+PS C:\Program Files\Blender Foundation\Blender 4.5> .\blender -b C:\Users\xxxxx\blender\blender_file.blend --python C:\Users\xxxxx\blender\pointcloud_generate.py
 ```
