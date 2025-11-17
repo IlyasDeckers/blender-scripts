@@ -4,10 +4,46 @@ import numpy as np
 from mathutils import Vector
 import random
 
-# ============================================
-# ADAPTIVE POINTCLOUD GENERATOR
-# With automatic texture baking to vertex colors
-# ============================================
+def tessellate_mesh(obj, subdivisions=2):
+    """
+    Subdivide mesh for ultra-dense point sampling
+    subdivisions=1 → 4x faces
+    subdivisions=2 → 16x faces  
+    subdivisions=3 → 64x faces
+    """
+    print("=" * 50)
+    print(f"TESSELLATING MESH ({subdivisions} subdivision passes)")
+    print("=" * 50)
+    
+    original_faces = len(obj.data.polygons)
+    print(f"Original mesh: {original_faces} faces")
+    
+    # Create bmesh for subdivision
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    
+    # Subdivide
+    for i in range(subdivisions):
+        bmesh.ops.subdivide_edges(
+            bm,
+            edges=bm.edges,
+            cuts=1,
+            use_grid_fill=True,
+        )
+        print(f"  Pass {i+1}/{subdivisions}: {len(bm.faces)} faces")
+    
+    # Write back to mesh
+    bm.to_mesh(obj.data)
+    bm.free()
+    
+    obj.data.update()
+    
+    new_faces = len(obj.data.polygons)
+    print(f"✓ Tessellation complete: {original_faces} → {new_faces} faces ({new_faces/original_faces:.1f}x)")
+    print()
+    
+    return True
+
 
 def bake_texture_to_vertex_colors(obj):
     """
@@ -410,16 +446,18 @@ end_header
 
 def generate_adaptive_pointcloud_with_baking():
     """
-    Complete workflow: Bake textures → Generate pointcloud → Export
+    Complete workflow: Tessellate → Bake textures → Generate pointcloud → Export
     """
     
     # ===== CONFIGURATION =====
-    BASE_POINTS = 1000000        # Base layer point count
+    TESSELLATE = True            # Subdivide mesh first for density
+    SUBDIVISIONS = 2             # Subdivision passes (1=4x, 2=16x, 3=64x, 4=256x faces!)
+    BASE_POINTS = 2000000        # Base layer point count
     DETAIL_MULTIPLIER = 8.0      # Density multiplier for curved areas
     NOISE_STRENGTH = 0.0005      # Micro-variation
     LAYERS = 3                   # Detail passes
     BAKE_TEXTURES = True         # Bake textures to vertex colors first
-    EXPORT_PATH = r"C:\path_to_file"
+    EXPORT_PATH = r"C:\path_to_file.ply"
     
     # Get active object
     obj = bpy.context.active_object
@@ -429,9 +467,14 @@ def generate_adaptive_pointcloud_with_baking():
         return
     
     print(f"Processing: {obj.name}")
-    print(f"Vertices: {len(obj.data.vertices)}")
-    print(f"Faces: {len(obj.data.polygons)}")
+    print(f"Original mesh - Vertices: {len(obj.data.vertices)}, Faces: {len(obj.data.polygons)}")
     print()
+    
+    # Tessellate mesh first for ultra-dense sampling
+    if TESSELLATE:
+        tessellate_mesh(obj, SUBDIVISIONS)
+        print(f"After tessellation - Vertices: {len(obj.data.vertices)}, Faces: {len(obj.data.polygons)}")
+        print()
     
     # Bake textures to vertex colors if requested
     has_vertex_colors = False
@@ -453,10 +496,7 @@ def generate_adaptive_pointcloud_with_baking():
     generator.export_ply(EXPORT_PATH)
     
     print()
-    print("IMPORT TO TOUCHDESIGNER:")
-    print(f"1. Point File In TOP → {EXPORT_PATH}")
-    print("2. RGB channels will contain texture colors")
-    print("3. Adjust Point Scale for desired density")
+    print("GREAT SUCCESS!")
 
 
 # Run it
